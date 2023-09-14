@@ -52,9 +52,11 @@ class AssetsController extends Controller
      */
     public function index(Request $request, $audit = null) 
     {
-
         $filter_non_deprecable_assets = false;
-
+        
+       
+        $user = auth()->user();
+        $isSuperUser = $user->hasAccess('superuser');
         /**
          * This looks MAD janky (and it is), but the AssetsController@index does a LOT of heavy lifting throughout the 
          * app. This bit here just makes sure that someone without permission to view assets doesn't 
@@ -115,9 +117,16 @@ class AssetsController extends Controller
             $allowed_columns[] = $field->db_column_name();
         }
 
+        if (!$isSuperUser) {
         $assets = Asset::select('assets.*')
             ->with('location', 'assetstatus', 'company', 'defaultLoc','assignedTo',
-                'model.category', 'model.manufacturer', 'model.fieldset','supplier'); //it might be tempting to add 'assetlog' here, but don't. It blows up update-heavy users.
+            'model.category', 'model.manufacturer', 'model.fieldset','supplier')
+            ->join('users', 'users.id', 'assets.user_id')
+            ->where('assets.user_id', $user->id); //it might be tempting to add 'assetlog' here, but don't. It blows up update-heavy users.
+        } else {
+        $assets = Asset::select('assets.*')->with('location', 'assetstatus', 'company', 'defaultLoc','assignedTo',
+            'model.category', 'model.manufacturer', 'model.fieldset','supplier');
+        }
 
 
         if ($filter_non_deprecable_assets) {
